@@ -1,0 +1,6 @@
+spring:
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/wine_store_db_test
+    username: postgres
+    password: banco007

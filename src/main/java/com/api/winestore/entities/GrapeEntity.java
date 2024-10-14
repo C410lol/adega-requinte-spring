@@ -20,6 +20,6 @@ public class GrapeEntity {
 
     @JsonIgnore
     @ManyToMany(mappedBy = "grapes")
-    private List<WineEntity> wines;
+    private List<ProductEntity> wines;
 
 }

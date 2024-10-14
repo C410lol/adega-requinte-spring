@@ -6,13 +6,15 @@ import com.api.winestore.entities.UserEntity;
 import com.api.winestore.enums.RoleEnum;
 import com.api.winestore.others.LoginReturnDTO;
 import com.api.winestore.others.ResponseReturn;
-import com.api.winestore.services.JWTService;
 import com.api.winestore.services.UsersService;
+import com.api.winestore.utils.JWTUtils;
 import lombok.RequiredArgsConstructor;
 import org.jetbrains.annotations.NotNull;
 import org.springframework.beans.BeanUtils;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.UUID;
@@ -23,7 +25,9 @@ import java.util.UUID;
 public class UsersController {
 
     private final UsersService usersService;
-    private final JWTService jwtService;
+    private final BCryptPasswordEncoder passwordEncoder;
+    private final JWTUtils jwtUtils;
+
 
 
 
@@ -47,11 +51,15 @@ public class UsersController {
                     .body(new ResponseReturn("Usuário criado com sucesso", createdUser));
         }
 
-        var token = jwtService.generateToken(createdUser.getId());
+        var token = jwtUtils.generateToken(createdUser.getEmail());
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(new ResponseReturn(
                         "Usuário criado com sucesso",
-                        new LoginReturnDTO(createdUser.getId(), token)
+                        new LoginReturnDTO(
+                                createdUser.getId(),
+                                token,
+                                System.currentTimeMillis() + JWTUtils.expiration
+                        )
                 ));
     }
 
@@ -65,21 +73,28 @@ public class UsersController {
                     .body(new ResponseReturn("Email não encontrado", null));
         }
 
-        if (!userOptional.get().getPassword().equals(loginDTO.password())) {
+        if (!passwordEncoder.matches(loginDTO.password(), userOptional.get().getPassword())) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .body(new ResponseReturn("Senha incorreta", null));
         }
 
-        var token = jwtService.generateToken(userOptional.get().getId());
+        var token = jwtUtils.generateToken(userOptional.get().getEmail());
         return ResponseEntity.ok(new ResponseReturn(
                 "Login realizado com sucesso",
-                new LoginReturnDTO(userOptional.get().getId(), token)));
+                new LoginReturnDTO(
+                        userOptional.get().getId(),
+                        token,
+                        System.currentTimeMillis() + JWTUtils.expiration
+                        )
+        ));
     }
+
 
     // ------------------------------------------------------------------ //
 
 
     @GetMapping("/{userId}")
+    @PreAuthorize("hasAnyRole('ROLE_USER', 'ROLE_ADMIN')")
     public ResponseEntity<?> getById(
             @PathVariable(value = "userId") UUID userId
     ) {

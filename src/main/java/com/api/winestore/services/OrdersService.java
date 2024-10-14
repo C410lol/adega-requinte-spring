@@ -3,11 +3,11 @@ package com.api.winestore.services;
 import com.api.winestore.entities.OrderEntity;
 import com.api.winestore.repositories.OrdersRepository;
 import lombok.RequiredArgsConstructor;
+import org.jetbrains.annotations.NotNull;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
-import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -28,8 +28,9 @@ public class OrdersService {
     // ------------------------------------------------------------------ //
 
 
-    public Page<OrderEntity> findAll(Pageable pageable) {
-        return ordersRepository.findAll(pageable);
+    public Page<OrderEntity> findAll(@NotNull String text, Pageable pageable) {
+        if (text.isBlank()) text = "%";
+        return ordersRepository.findAllByText(text, pageable);
     }
 
     public Optional<OrderEntity> findById(UUID orderId) {

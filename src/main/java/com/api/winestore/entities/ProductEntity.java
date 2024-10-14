@@ -1,13 +1,11 @@
 package com.api.winestore.entities;
 
-import com.api.winestore.enums.CountryEnum;
-import com.api.winestore.enums.ProductStatusEnum;
-import com.api.winestore.enums.WineClassificationEnum;
-import com.api.winestore.enums.WineTypeEnum;
+import com.api.winestore.enums.*;
 import com.fasterxml.jackson.annotation.JsonGetter;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.Data;
+import lombok.ToString;
 
 import java.util.List;
 import java.util.Set;
@@ -15,8 +13,8 @@ import java.util.UUID;
 
 @Data
 @Entity
-@Table(name = "wines")
-public class WineEntity implements PromotionalProduct {
+@Table(name = "products")
+public class ProductEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
@@ -27,7 +25,10 @@ public class WineEntity implements PromotionalProduct {
     private String description;
 
     @Enumerated(value = EnumType.STRING)
-    private WineTypeEnum type;
+    private ProductTypeEnum type;
+
+    @Enumerated(value = EnumType.STRING)
+    private WineCategoryEnum category;
 
     @Enumerated(value = EnumType.STRING)
     private CountryEnum country;
@@ -50,11 +51,12 @@ public class WineEntity implements PromotionalProduct {
 
     private Double promPrice;
 
-    private String[] images;
+    private List<String> images;
 
     @Enumerated(value = EnumType.STRING)
     private ProductStatusEnum status;
 
+    @ToString.Exclude
     @ManyToMany
     @JoinTable(
             name = "products_grapes",
@@ -63,6 +65,7 @@ public class WineEntity implements PromotionalProduct {
     )
     private Set<GrapeEntity> grapes;
 
+    @ToString.Exclude
     @JsonIgnore
     @OneToMany(mappedBy = "product", cascade = {CascadeType.PERSIST})
     private List<OrderProductEntity> orderProducts;
@@ -70,7 +73,6 @@ public class WineEntity implements PromotionalProduct {
 
 
 
-    @Override
     @JsonGetter(value = "currentPrice")
     public double getCurrentPrice() {
         if (hasProm) return promPrice;

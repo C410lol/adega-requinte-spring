@@ -1,6 +1,6 @@
 package com.api.winestore.enums;
 
-public enum WineTypeEnum {
+public enum WineCategoryEnum {
 
     Tinto,
     Branco,

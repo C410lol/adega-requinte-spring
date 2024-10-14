@@ -4,7 +4,7 @@ public enum OrderStatusEnum {
 
     CONFIRMANDO,
     CONFIRMADO,
-    ENTREGUE,
+    CONCLUÍDO,
     CANCELADO
 
 }

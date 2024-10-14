@@ -4,6 +4,7 @@ import java.util.UUID;
 
 public record LoginReturnDTO(
         UUID userId,
-        String token
+        String token,
+        Long expiresIn
 ) {
 }

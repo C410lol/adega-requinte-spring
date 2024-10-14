@@ -1,14 +1,14 @@
 package com.api.winestore.dtos;
 
-import com.api.winestore.enums.CountryEnum;
-import com.api.winestore.enums.ProductStatusEnum;
-import com.api.winestore.enums.WineClassificationEnum;
-import com.api.winestore.enums.WineTypeEnum;
+import com.api.winestore.enums.*;
 
-public record WineDTO(
+import java.util.List;
+
+public record ProductDTO(
         String name,
         String description,
-        WineTypeEnum type,
+        ProductTypeEnum type,
+        WineCategoryEnum category,
         CountryEnum country,
         WineClassificationEnum classification,
         GrapeDTO[] grapes,
@@ -17,7 +17,7 @@ public record WineDTO(
         double regPrice,
         boolean hasProm,
         double promPrice,
-        String[] images,
+        List<String> images,
         ProductStatusEnum status
 ) {
 }

@@ -4,6 +4,7 @@ import com.api.winestore.enums.RoleEnum;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.Data;
+import lombok.ToString;
 
 import java.util.List;
 import java.util.UUID;
@@ -28,10 +29,12 @@ public class UserEntity {
     @Enumerated(value = EnumType.STRING)
     private RoleEnum role;
 
+    @ToString.Exclude
     @JsonIgnore
     @OneToMany(mappedBy = "user")
     private List<OrderEntity> orders;
 
+    @ToString.Exclude
     @JsonIgnore
     @OneToMany(mappedBy = "user")
     private List<AddressEntity> addresses;

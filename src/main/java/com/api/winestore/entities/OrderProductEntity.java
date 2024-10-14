@@ -21,7 +21,7 @@ public class OrderProductEntity {
 
     @ManyToOne
     @JoinColumn(name = "product_id")
-    private WineEntity product;
+    private ProductEntity product;
 
     @ManyToOne
     @JsonIgnore

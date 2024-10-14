@@ -10,6 +10,7 @@ import com.api.winestore.enums.OrderStatusEnum;
 import com.api.winestore.enums.ProductStatusEnum;
 import com.api.winestore.others.ResponseReturn;
 import com.api.winestore.services.*;
+import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.jetbrains.annotations.NotNull;
 import org.springframework.beans.BeanUtils;
@@ -17,6 +18,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.text.DecimalFormat;
@@ -32,7 +34,7 @@ public class OrdersController {
 
     private final OrdersService ordersService;
     private final UsersService usersService;
-    private final WinesService winesService;
+    private final ProductsService productsService;
     private final AddressesService addressesService;
     private final OrderProductsService orderProductsService;
 
@@ -40,6 +42,7 @@ public class OrdersController {
 
 
     @PostMapping("/save")
+    @PreAuthorize("hasAnyRole('ROLE_USER', 'ROLE_ADMIN')")
     public ResponseEntity<?> saveOrder(
             @RequestParam(value = "userId") UUID userId,
             @RequestParam(value = "addressId", required = false) UUID addressId,
@@ -92,7 +95,7 @@ public class OrdersController {
         double totalPrice = 0;
         for (OrderProductDTO orderProductDTO:
                 orderDTO.orderProducts()) {
-            var productOptional = winesService.findById(orderProductDTO.productId());
+            var productOptional = productsService.findById(orderProductDTO.productId());
             if (productOptional.isEmpty()) {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND)
                         .body(new ResponseReturn(
@@ -104,7 +107,7 @@ public class OrdersController {
             if (productOptional.get().getStatus().equals(ProductStatusEnum.INDISPONÍVEL)) {
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                         .body(new ResponseReturn(
-                                String.format("Produto (ID -> %s) indisponível", productOptional.get().getId()),
+                                String.format("Produto '%s' indisponível", productOptional.get().getName()),
                                 null
                         ));
             }
@@ -114,20 +117,10 @@ public class OrdersController {
             if (discountedStock < 0) {
                 return ResponseEntity.status(HttpStatus.CONFLICT)
                         .body(new ResponseReturn(
-                                String.format("Produto (ID -> %s) tem estoque insulficiente", productOptional.get().getId()),
+                                String.format("Produto '%s' tem estoque insuficiente", productOptional.get().getName()),
                                 null
                         ));
             }
-
-            //SET NEW PRODUCT QUANTITY
-            productOptional.get().setQuantity(discountedStock);
-
-            //CHECK IF THE STOCK IS OVER
-            if (discountedStock == 0) {
-                productOptional.get().setStatus(ProductStatusEnum.INDISPONÍVEL);
-            }
-
-            winesService.save(productOptional.get());
 
             totalPrice += productOptional.get().getCurrentPrice() * orderProductDTO.quantity();
         }
@@ -143,7 +136,7 @@ public class OrdersController {
         //PERSIST OrderProduct Entities IN DATABASE
         for (OrderProductDTO orderProductDTO:
                 orderDTO.orderProducts()) {
-            var productOptional = winesService.findById(orderProductDTO.productId());
+            var productOptional = productsService.findById(orderProductDTO.productId());
 
             var orderProductEntity = new OrderProductEntity();
             orderProductEntity.setProduct(productOptional.get());
@@ -167,16 +160,19 @@ public class OrdersController {
 
 
     @GetMapping("/all")
+    @PreAuthorize("hasRole('ROLE_ADMIN')")
     public ResponseEntity<?> getAll(
-            @RequestParam(value = "sortBy", defaultValue = "orderNumber", required = false) String sortBy,
-            @RequestParam(value = "direction", defaultValue = "desc", required = false) String direction,
-            @RequestParam(value = "pageNum", defaultValue = "0", required = false) int pageNum
+            @RequestParam(value = "text", defaultValue = "%", required = false) String text
     ) {
-        var pageable = PageRequest.of(pageNum, 20, Sort.Direction.fromString(direction), sortBy);
-        return ResponseEntity.ok(new ResponseReturn(null, ordersService.findAll(pageable)));
+        var pageable = PageRequest.of(0, Integer.MAX_VALUE, Sort.Direction.DESC, "order_number");
+        return ResponseEntity.ok(new ResponseReturn(
+                null,
+                ordersService.findAll(text, pageable)
+        ));
     }
 
     @GetMapping("/all-by-user")
+    @PreAuthorize("hasAnyRole('ROLE_USER', 'ROLE_ADMIN')")
     public ResponseEntity<?> getAllByUserId(
             @RequestParam(value = "userId") UUID userId
     ) {
@@ -192,6 +188,7 @@ public class OrdersController {
     }
 
     @GetMapping("/{orderId}")
+    @PreAuthorize("hasAnyRole('ROLE_USER', 'ROLE_ADMIN')")
     public ResponseEntity<?> getById(
             @PathVariable(value = "orderId") UUID orderId
     ) {
@@ -210,9 +207,12 @@ public class OrdersController {
     // ------------------------------------------------------------------ //
 
 
-    @PutMapping("/{orderId}/cancel")
-    public ResponseEntity<?> cancelOrder(
-            @PathVariable(value = "orderId") UUID orderId
+    @Transactional
+    @PutMapping("/{orderId}/modify-status")
+    @PreAuthorize("hasRole('ROLE_ADMIN')")
+    public ResponseEntity<?> editOrderStatus(
+            @PathVariable(value = "orderId") UUID orderId,
+            @RequestParam(value = "status") OrderStatusEnum orderStatus
     ) {
         var orderOptional = ordersService.findById(orderId);
         if (orderOptional.isEmpty()) {
@@ -220,9 +220,75 @@ public class OrdersController {
                     .body(new ResponseReturn("Pedido não encontrado", null));
         }
 
-        orderOptional.get().setStatus(OrderStatusEnum.CANCELADO);
+        if (
+                (orderStatus.equals(OrderStatusEnum.CONFIRMADO) &&
+                orderOptional.get().getStatus().equals(OrderStatusEnum.CANCELADO)) ||
+                (orderStatus.equals(OrderStatusEnum.CONFIRMADO) &&
+                orderOptional.get().getStatus().equals(OrderStatusEnum.CONFIRMANDO)) ||
+                (orderStatus.equals(OrderStatusEnum.CANCELADO) &&
+                orderOptional.get().getStatus().equals(OrderStatusEnum.CONFIRMADO))
+        ) {
+            for (OrderProductEntity orderProduct:
+                    orderOptional.get().getOrderProducts()) {
+                var productOptional = productsService.findById(orderProduct.getProduct().getId());
+                if (productOptional.isEmpty()) {
+                    if (orderStatus.equals(OrderStatusEnum.CANCELADO)) continue;
+
+                    return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                            .body(new ResponseReturn(
+                                    String.format("Produto (ID -> %s) não encontrado", orderProduct.getProduct().getId()),
+                                    null
+                            ));
+                }
+
+                if (productOptional.get().getStatus().equals(ProductStatusEnum.INDISPONÍVEL)) {
+                    if (orderStatus.equals(OrderStatusEnum.CANCELADO)) continue;
+
+                    return  ResponseEntity.status(HttpStatus.CONFLICT)
+                            .body(new ResponseReturn(
+                                    String.format("Produto '%s' indisponível", productOptional.get().getName()),
+                                    null
+                            ));
+                }
+
+                int newQuantity;
+                if (orderStatus.equals(OrderStatusEnum.CONFIRMADO)) {
+                    newQuantity = productOptional.get().getQuantity() - orderProduct.getQuantity();
+                    if (newQuantity < 0) {
+                        return ResponseEntity.status(HttpStatus.CONFLICT)
+                                .body(new ResponseReturn(
+                                        String.format(
+                                                "Produto '%s' estoque insuficiente",
+                                                productOptional.get().getName()
+                                        ),
+                                        null
+                                ));
+                    }
+                    if (newQuantity == 0) productOptional.get().setStatus(ProductStatusEnum.INDISPONÍVEL);
+                } else newQuantity = productOptional.get().getQuantity() + orderProduct.getQuantity();
+
+                productOptional.get().setQuantity(newQuantity);
+
+                productsService.save(productOptional.get());
+            }
+        }
+
+        orderOptional.get().setStatus(orderStatus);
         ordersService.save(orderOptional.get());
-        return ResponseEntity.ok(new ResponseReturn("Pedido cancelado com sucesso", null));
+        return ResponseEntity.ok(new ResponseReturn("Pedido editado com sucesso", null));
+    }
+
+
+    // ------------------------------------------------------------------ //
+
+
+    @Transactional
+    @DeleteMapping("/{orderId}")
+    @PreAuthorize("hasAnyRole('ROLE_USER', 'ROLE_ADMIN')")
+    public ResponseEntity<?> cancelOrder(
+            @PathVariable(value = "orderId") UUID orderId
+    ) {
+        return editOrderStatus(orderId, OrderStatusEnum.CANCELADO);
     }
 
 }

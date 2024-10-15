@@ -43,6 +43,7 @@ public class UsersController {
 
         var userEntity = new UserEntity();
         BeanUtils.copyProperties(userDTO, userEntity);
+        userEntity.setMember(false);
         userEntity.setRole(RoleEnum.ROLE_USER);
 
         var createdUser = usersService.save(userEntity);

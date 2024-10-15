@@ -26,6 +26,8 @@ public class UserEntity {
 
     private String password;
 
+    private boolean isMember;
+
     @Enumerated(value = EnumType.STRING)
     private RoleEnum role;
 

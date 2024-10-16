@@ -54,6 +54,7 @@ public class OrdersController {
         orderEntity.setDelivery(orderDTO.delivery());
         orderEntity.setPayment(orderDTO.payment());
         orderEntity.setExchange(orderDTO.exchange());
+        orderEntity.setHasMemberDiscount(false);
         orderEntity.setStatus(OrderStatusEnum.CONFIRMANDO);
 
         //SET USER
@@ -103,26 +104,30 @@ public class OrdersController {
                                 null
                         ));
             }
+            var product = productOptional.get();
 
-            if (productOptional.get().getStatus().equals(ProductStatusEnum.INDISPONÍVEL)) {
+            if (product.getStatus().equals(ProductStatusEnum.INDISPONÍVEL)) {
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                         .body(new ResponseReturn(
-                                String.format("Produto '%s' indisponível", productOptional.get().getName()),
+                                String.format("Produto '%s' indisponível", product.getName()),
                                 null
                         ));
             }
 
-            int discountedStock = productOptional.get().getQuantity() - orderProductDTO.quantity();
+            int discountedStock = product.getQuantity() - orderProductDTO.quantity();
 
             if (discountedStock < 0) {
                 return ResponseEntity.status(HttpStatus.CONFLICT)
                         .body(new ResponseReturn(
-                                String.format("Produto '%s' tem estoque insuficiente", productOptional.get().getName()),
+                                String.format("Produto '%s' tem estoque insuficiente", product.getName()),
                                 null
                         ));
             }
 
-            totalPrice += productOptional.get().getCurrentPrice() * orderProductDTO.quantity();
+            if (userOptional.get().isMember() && !product.getHasProm()) {
+                orderEntity.setHasMemberDiscount(true);
+                totalPrice += ((product.getCurrentPrice() * 90) / 100) * orderProductDTO.quantity();
+            } else totalPrice += product.getCurrentPrice() * orderProductDTO.quantity();
         }
 
         if (orderDTO.delivery() == DeliveryEnum.ENTREGAR) totalPrice+= 5;

@@ -42,8 +42,11 @@ public class OrderEntity {
 
     private Double exchange;
 
+    private boolean hasMemberDiscount;
+
     private Double totalPrice;
 
+    @Transient
     private Integer totalProducts;
 
     @Enumerated(value = EnumType.STRING)

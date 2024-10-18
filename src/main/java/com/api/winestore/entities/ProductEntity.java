@@ -7,6 +7,7 @@ import jakarta.persistence.*;
 import lombok.Data;
 import lombok.ToString;
 
+import java.text.DecimalFormat;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -45,6 +46,9 @@ public class ProductEntity {
 
     private Double regPrice;
 
+    @Transient
+    private Double memberPrice;
+
     private Boolean hasProm;
 
     private Integer promPercentage;
@@ -73,10 +77,27 @@ public class ProductEntity {
 
 
 
+    @JsonGetter(value = "category")
+    public String getCategory() {
+        if (category == null) return null;
+        return category.name().replaceAll("_", " ");
+    }
+
+    @JsonGetter(value = "classification")
+    public String getClassification() {
+        if (classification == null) return null;
+        return classification.name().replaceAll("_", " ");
+    }
+
     @JsonGetter(value = "currentPrice")
     public double getCurrentPrice() {
         if (hasProm) return promPrice;
         return regPrice;
+    }
+
+    @JsonGetter(value = "memberPrice")
+    public double getMemberPrice() {
+        return Double.parseDouble(new DecimalFormat("#.##").format(((regPrice * 90) / 100)));
     }
 
 }

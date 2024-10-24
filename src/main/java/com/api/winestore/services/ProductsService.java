@@ -62,7 +62,7 @@ public class ProductsService {
             wineFilters.add(String.format("p.category IN (%s)", getListOfFilter(categories)));
         }
         if (!countries.isEmpty()) {
-            wineFilters.add(String.format("p.country IN (%s)", getListOfFilter(countries)));
+            wineFilters.add(String.format("p.country.name IN (%s)", getListOfFilter(countries)));
         }
         if (!classifications.isEmpty()) {
             wineFilters.add(String.format("p.classification IN (%s)", getListOfFilter(classifications)));
@@ -73,7 +73,6 @@ public class ProductsService {
         sqlString.append(String.format("ORDER BY status asc, p.%s %s", orderBy, direction));
 
         TypedQuery<ProductEntity> query = entityManager.createQuery(sqlString.toString(), ProductEntity.class);
-
         List<ProductEntity> wines = query.getResultList();
 
         return new PageImpl<>(
@@ -125,9 +124,9 @@ public class ProductsService {
 
 
 
-    public Page<ProductEntity> findAllByText(@NotNull String text, Pageable pageable) {
+    public List<ProductEntity> findAllByText(@NotNull String text) {
         if (text.isBlank()) text = "%";
-        return productsRepository.findAllByText(text, pageable);
+        return productsRepository.findAllByText(text);
     }
 
     public Optional<ProductEntity> findById(UUID id) {

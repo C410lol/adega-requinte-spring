@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.UUID;
 
 @Repository
@@ -20,17 +21,19 @@ public interface ProductsRepository extends JpaRepository<ProductEntity, UUID> {
     Page<ProductEntity> findAllExcludeDeleted(Pageable pageable);
 
     @Query(
-            value = "SELECT * FROM products WHERE status != 'DELETED' AND (" +
-                    "UPPER(name) LIKE UPPER(concat('%', :text, '%')) OR " +
-                    "UPPER(type) LIKE UPPER(concat('%', :text, '%')) OR " +
-                    "UPPER(category) LIKE UPPER(concat('%', :text, '%')) OR " +
-                    "UPPER(classification) LIKE UPPER(concat('%', :text, '%')) OR " +
-                    "UPPER(country) LIKE UPPER(concat('%', :text, '%')))",
+            value = "SELECT products.* FROM products " +
+                    "LEFT JOIN countries ON products.country_id = countries.id " +
+                    "WHERE products.status != 'DELETED' AND (" +
+                    "UPPER(products.name) LIKE UPPER(concat('%', :text, '%')) OR " +
+                    "UPPER(products.type) LIKE UPPER(concat('%', :text, '%')) OR " +
+                    "UPPER(products.category) LIKE UPPER(concat('%', :text, '%')) OR " +
+                    "UPPER(products.classification) LIKE UPPER(concat('%', :text, '%')) OR " +
+                    "UPPER(countries.name) LIKE UPPER(concat('%', :text, '%'))) " +
+                    "order by products.name asc",
             nativeQuery = true
     )
-    Page<ProductEntity> findAllByText(
-            @Param(value = "text") String text,
-            Pageable pageable
+    List<ProductEntity> findAllByText(
+            @Param(value = "text") String text
     );
 
 }

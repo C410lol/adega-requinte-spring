@@ -3,6 +3,7 @@ package com.api.winestore.services;
 import com.api.winestore.entities.GrapeEntity;
 import com.api.winestore.repositories.GrapesRepository;
 import lombok.RequiredArgsConstructor;
+import org.jetbrains.annotations.NotNull;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -30,7 +31,8 @@ public class GrapesService {
         return grapesRepository.findById(id);
     }
 
-    public List<GrapeEntity> findAllByName(String name) {
+    public List<GrapeEntity> findAllByName(@NotNull String name) {
+        if (name.isBlank()) name = "%";
         return grapesRepository.findAllByName(name);
     }
 

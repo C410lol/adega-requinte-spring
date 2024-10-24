@@ -25,6 +25,9 @@ public class ProductEntity {
 
     private String description;
 
+
+
+
     @Enumerated(value = EnumType.STRING)
     private ProductTypeEnum type;
 
@@ -32,12 +35,28 @@ public class ProductEntity {
     private WineCategoryEnum category;
 
     @Enumerated(value = EnumType.STRING)
-    private CountryEnum country;
-
-    @Enumerated(value = EnumType.STRING)
     private WineClassificationEnum classification;
 
+    @ToString.Exclude
+    @ManyToMany
+    @JoinTable(
+            name = "products_harmonizations",
+            joinColumns = {@JoinColumn(name = "product_id")},
+            inverseJoinColumns = {@JoinColumn(name = "harmonization_id")}
+    )
+    private Set<HarmonizationEntity> harmonizationTags;
+
+    @ManyToOne
+    @JoinColumn(name = "country_id")
+    private CountryEntity country;
+
+
+
+
     private String size;
+
+
+
 
     private Integer quantity;
 

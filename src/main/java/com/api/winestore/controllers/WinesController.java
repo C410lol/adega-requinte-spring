@@ -1,20 +1,22 @@
 package com.api.winestore.controllers;
 
 import com.api.winestore.dtos.GrapeDTO;
+import com.api.winestore.dtos.HarmonizationDTO;
 import com.api.winestore.dtos.ImgurApiResponse;
 import com.api.winestore.dtos.ProductDTO;
 import com.api.winestore.entities.GrapeEntity;
+import com.api.winestore.entities.HarmonizationEntity;
 import com.api.winestore.entities.ProductEntity;
 import com.api.winestore.enums.ProductStatusEnum;
 import com.api.winestore.enums.ProductTypeEnum;
 import com.api.winestore.others.ResponseReturn;
+import com.api.winestore.services.CountriesService;
 import com.api.winestore.services.GrapesService;
+import com.api.winestore.services.HarmonizationsService;
 import com.api.winestore.services.ProductsService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.BeanUtils;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -36,6 +38,8 @@ public class WinesController {
 
     private final ProductsService productsService;
     private final GrapesService grapesService;
+    private final HarmonizationsService harmonizationsService;
+    private final CountriesService countriesService;
 
 
 
@@ -106,8 +110,35 @@ public class WinesController {
                 grapeEntity.setName(grapeDTO.name());
                 grapes.add(grapesService.save(grapeEntity));
             }
-
             productEntity.setGrapes(grapes);
+
+            Set<HarmonizationEntity> harmonizations = new HashSet<>();
+            for (HarmonizationDTO harmonizationDTO:
+                    productDTO.harmonizations()) {
+                if (harmonizationDTO.id() != null) {
+                    var harmonizationOptional = harmonizationsService.findById(harmonizationDTO.id());
+                    if (harmonizationOptional.isPresent()) {
+                        harmonizations.add(harmonizationOptional.get());
+                        continue;
+                    }
+                }
+
+                var harmonizationOptionalName = harmonizationsService.findByName(harmonizationDTO.name());
+                if (harmonizationOptionalName.isPresent()) {
+                    harmonizations.add(harmonizationOptionalName.get());
+                    continue;
+                }
+
+                if (harmonizationDTO.name().isBlank()) continue;
+
+                var harmonizationEntity = new HarmonizationEntity();
+                harmonizationEntity.setName(harmonizationDTO.name());
+                harmonizations.add(harmonizationsService.save(harmonizationEntity));
+            }
+            productEntity.setHarmonizationTags(harmonizations);
+
+            var countryOptional = countriesService.findById(productDTO.countryId());
+            if (countryOptional.isPresent()) productEntity.setCountry(countryOptional.get());
         }
 
         return ResponseEntity.status(HttpStatus.CREATED)
@@ -151,10 +182,9 @@ public class WinesController {
     public ResponseEntity<?> getAllByText(
             @RequestParam(value = "text", defaultValue = "%", required = false) String text
     ) {
-        var pageable = PageRequest.of(0, Integer.MAX_VALUE, Sort.Direction.ASC, "name");
         return ResponseEntity.ok(new ResponseReturn(
                 null,
-                productsService.findAllByText(text, pageable)
+                productsService.findAllByText(text)
         ));
     }
 
@@ -190,9 +220,19 @@ public class WinesController {
         }
 
         var productDTO = new ObjectMapper().readValue(productDTORaw, ProductDTO.class);
+        BeanUtils.copyProperties(productDTO, productOptional.get());
+        if (productDTO.hasProm()) {
+            productOptional.get().setPromPercentage(
+                    (int) ((productDTO.regPrice() - productDTO.promPrice()) * 100 / productDTO.regPrice())
+            );
+        }
 
-        List<String> imagesList = new ArrayList<>(productDTO.images());
+
+
+
         if (images != null) {
+            List<String> imagesList = new ArrayList<>(productDTO.images());
+
             var httpClient = HttpClient.newHttpClient();
             for (MultipartFile image:
                     images) {
@@ -209,46 +249,73 @@ public class WinesController {
 
                 imagesList.add(imgurApiResponse.data().link());
             }
+
+            productOptional.get().setImages(imagesList);
         }
 
-        if (productDTO.grapes().length < 1) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                    .body(new ResponseReturn("É necessário selecionar ao menos uma uva", null));
-        }
 
-        Set<GrapeEntity> grapes = new HashSet<>();
-        for (GrapeDTO grapeDTO:
-                productDTO.grapes()) {
-            if (grapeDTO.id() != null) {
-                var grapeOptional = grapesService.findById(grapeDTO.id());
-                if (grapeOptional.isPresent()) {
-                    grapes.add(grapeOptional.get());
+
+
+        if (
+                productDTO.type().equals(ProductTypeEnum.Vinho) ||
+                productDTO.type().equals(ProductTypeEnum.Suco)
+        ) {
+            Set<GrapeEntity> grapes = new HashSet<>();
+            for (GrapeDTO grapeDTO:
+                    productDTO.grapes()) {
+                if (grapeDTO.id() != null) {
+                    var grapeOptional = grapesService.findById(grapeDTO.id());
+                    if (grapeOptional.isPresent()) {
+                        grapes.add(grapeOptional.get());
+                        continue;
+                    }
+                }
+
+                var grapeOptionalName = grapesService.findByName(grapeDTO.name());
+                if (grapeOptionalName.isPresent()) {
+                    grapes.add(grapeOptionalName.get());
                     continue;
                 }
+
+                if (grapeDTO.name().isBlank()) continue;
+
+                var grapeEntity = new GrapeEntity();
+                grapeEntity.setName(grapeDTO.name());
+                grapes.add(grapesService.save(grapeEntity));
             }
+            productOptional.get().setGrapes(grapes);
 
-            var grapeOptionalName = grapesService.findByName(grapeDTO.name());
-            if (grapeOptionalName.isPresent()) {
-                grapes.add(grapeOptionalName.get());
-                continue;
+            Set<HarmonizationEntity> harmonizations = new HashSet<>();
+            for (HarmonizationDTO harmonizationDTO:
+                    productDTO.harmonizations()) {
+                if (harmonizationDTO.id() != null) {
+                    var harmonizationOptional = harmonizationsService.findById(harmonizationDTO.id());
+                    if (harmonizationOptional.isPresent()) {
+                        harmonizations.add(harmonizationOptional.get());
+                        continue;
+                    }
+                }
+
+                var harmonizationOptionalName = harmonizationsService.findByName(harmonizationDTO.name());
+                if (harmonizationOptionalName.isPresent()) {
+                    harmonizations.add(harmonizationOptionalName.get());
+                    continue;
+                }
+
+                if (harmonizationDTO.name().isBlank()) continue;
+
+                var harmonizationEntity = new HarmonizationEntity();
+                harmonizationEntity.setName(harmonizationDTO.name());
+                harmonizations.add(harmonizationsService.save(harmonizationEntity));
             }
+            productOptional.get().setHarmonizationTags(harmonizations);
 
-            if (grapeDTO.name().isBlank()) continue;
-
-            var grapeEntity = new GrapeEntity();
-            grapeEntity.setName(grapeDTO.name());
-            grapes.add(grapesService.save(grapeEntity));
+            var countryOptional = countriesService.findById(productDTO.countryId());
+            if (countryOptional.isPresent()) productOptional.get().setCountry(countryOptional.get());
         }
 
-        BeanUtils.copyProperties(productDTO, productOptional.get());
-        productOptional.get().setImages(imagesList);
-        productOptional.get().setGrapes(grapes);
 
-        if (productDTO.hasProm()) {
-            productOptional.get().setPromPercentage(
-                    (int) ((productDTO.regPrice() - productDTO.promPrice()) * 100 / productDTO.regPrice())
-            );
-        }
+
 
         return ResponseEntity.ok(
                 new ResponseReturn("Produto editado com sucesos", productsService.save(productOptional.get()))

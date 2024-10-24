@@ -25,7 +25,7 @@ public class GrapesController {
     @GetMapping("/all-by-name")
     @PreAuthorize("hasRole('ROLE_ADMIN')")
     public ResponseEntity<?> findAllByName(
-            @RequestParam(value = "name") @NotNull String name
+            @RequestParam(value = "name", defaultValue = "%") @NotNull String name
     ) {
         if (name.isBlank()) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)

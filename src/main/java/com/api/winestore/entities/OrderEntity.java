@@ -58,6 +58,22 @@ public class OrderEntity {
 
 
 
+    @JsonGetter(value = "date")
+    public String getFormatedDate() {
+        var dateSplited = date.toString().split("-");
+        return String.format("%s/%s/%s", dateSplited[2], dateSplited[1], dateSplited[0]);
+    }
+
+    @JsonGetter(value = "delivery")
+    public String getFormatedDelivery() {
+        return delivery.name().charAt(0) + delivery.name().substring(1).toLowerCase();
+    }
+
+    @JsonGetter(value = "payment")
+    public String getFormatedPayment() {
+        return payment.name().charAt(0) + payment.name().substring(1).toLowerCase();
+    }
+
     @JsonGetter(value = "totalProducts")
     public Integer getTotalProducts() {
         if (orderProducts != null) return orderProducts.size();

@@ -1,12 +1,14 @@
 package com.api.winestore.services;
 
 import com.api.winestore.entities.UserEntity;
+import com.api.winestore.enums.RoleEnum;
 import com.api.winestore.repositories.UsersRepository;
 import lombok.RequiredArgsConstructor;
 import org.jetbrains.annotations.NotNull;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -28,6 +30,10 @@ public class UsersService {
 
     // ------------------------------------------------------------------ //
 
+
+    public List<UserEntity> findAllByRoleAndText(@NotNull RoleEnum roleEnum, String text) {
+        return usersRepository.findAllByRoleAndText(roleEnum.name(), text);
+    }
 
     public Optional<UserEntity> findById(UUID id) {
         return usersRepository.findById(id);

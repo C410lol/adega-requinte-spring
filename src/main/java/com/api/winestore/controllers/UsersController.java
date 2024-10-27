@@ -94,6 +94,18 @@ public class UsersController {
     // ------------------------------------------------------------------ //
 
 
+    @GetMapping("/clients")
+    @PreAuthorize("hasRole('ROLE_ADMIN')")
+    public ResponseEntity<?> getAllClients(
+            @RequestParam(value = "text", defaultValue = "%", required = false) String text
+    ) {
+        return ResponseEntity.ok(new ResponseReturn(
+                null,
+                usersService.findAllByRoleAndText(RoleEnum.ROLE_USER, text)
+        ));
+    }
+
+
     @GetMapping("/{userId}")
     @PreAuthorize("hasAnyRole('ROLE_USER', 'ROLE_ADMIN')")
     public ResponseEntity<?> getById(

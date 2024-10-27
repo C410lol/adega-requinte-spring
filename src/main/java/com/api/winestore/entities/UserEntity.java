@@ -1,6 +1,7 @@
 package com.api.winestore.entities;
 
 import com.api.winestore.enums.RoleEnum;
+import com.fasterxml.jackson.annotation.JsonGetter;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.Data;
@@ -32,7 +33,6 @@ public class UserEntity {
     private RoleEnum role;
 
     @ToString.Exclude
-    @JsonIgnore
     @OneToMany(mappedBy = "user")
     private List<OrderEntity> orders;
 
@@ -40,5 +40,14 @@ public class UserEntity {
     @JsonIgnore
     @OneToMany(mappedBy = "user")
     private List<AddressEntity> addresses;
+
+
+
+
+    @JsonGetter(value = "orders")
+    public int getOrdersSize() {
+        if (orders != null) return orders.size();
+        return 0;
+    }
 
 }
